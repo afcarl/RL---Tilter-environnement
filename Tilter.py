@@ -5,7 +5,7 @@ import arcade
 
 class Ball(): 
 
-	def __init__(self,lim = [250,450], start_height = 380, size = 10): 
+	def __init__(self,lim, start_height = 380, size = 10): 
 
 		self.lim = lim
 		self.start_height = start_height
@@ -36,17 +36,19 @@ class JointBar():
 
 class World(): 
 
-	def __init__(self, max_steps = 300, world_size = 700, continuous = False): 
+	def __init__(self, max_steps = 300, world_size = 700, x_lim = [250,450], continuous = False): 
 
-		self.generate_all()
+		self.x_lim = x_lim
 		self.max_steps = max_steps
 		self.world_size = world_size
 
 		self.continuous = continuous
+		
+		self.generate_all()
 
 	def generate_all(self): 
 
-		self.ball = Ball()
+		self.ball = Ball(lim = self.x_lim)
 		self.bar = JointBar()
 
 		self.space = pymunk.Space()
@@ -128,6 +130,7 @@ class Render(arcade.Window):
 
 		self.debug_reward = 0.
 		self.debug_action = 0.
+		self.debug_probs = None
 
 	def on_draw(self): 	
 
@@ -145,11 +148,26 @@ class Render(arcade.Window):
 
 		arcade.draw_text("Reward {}\n Action {}".format(self.debug_reward,self.debug_action), 550, 650, arcade.color.WHITE,12)
 
+		if self.debug_probs is not None: 
+			nb = self.debug_probs.shape[0]
+			x_ini, y_ini, inc = 450, 100, 20
+			max_y = 150
+			x = x_ini
+			for i in range(nb): 
+				p1 = v2(x + i*inc, y_ini)
+				p2 = v2(x + (i+1)*inc, y_ini)
+				p3 = p2 + v2(0, max_y*self.debug_probs[i])
+				p4 = p3 + v2(-inc, 0)
+				arcade.draw_polygon_filled((p1,p2,p3,p4), arcade.color.GREEN)
+				arcade.draw_text("A{}".format(i), p1[0], p1[1]-20, arcade.color.WHITE,12)
+				x += inc*1.1
+
 	def update(self, value, dt = 1./60): 
 		
 		if self.agent != None: 
 			state = self.world.observe()
-			self.debug_action = self.agent.demo_non_tensor(state)
+			if not self.continuous: 
+				self.debug_action, self.debug_probs = self.agent.demo_non_tensor(state)
 		else: 
 			self.debug_action = np.random.randint(3) if self.continuous else np.random.uniform(-1,1)
 
